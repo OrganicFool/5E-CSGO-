@@ -1,21 +1,5 @@
-#5E封禁记录生成工具
-5E封禁记录生成命令行工具，基于scrapy框架和selenium库
-可以查询到最近n个被封禁的用户
+1.非svip用户页面代码比较杂乱，相同的数据不同的玩家xpath可能不同。目前只能在异常中记录出现问题的用户主页url。
 
-## 开发环境
-火狐版本：66.0.1
+2.游戏玩家的名称字符多种多样，目前使用utf_8_sig编码，前5000条暂时没有出现问题，但仍然是个隐患。
 
-[scrapy](https://github.com/scrapy/scrapy) 版本：2.0.0
-
-```
-conda install scrapy 
-```
-[geckodriver](https://github.com/mozilla/geckodriver/releases)版本:0.24.0 win64
-
-pandas：0.25.1
-
-## 使用方法
-项目下使用如下命令生成记录数据，可以自己调整爬取数量
-```
-scrapy crawl BannedPlayer -a playernumber=1000
-```
+3.许多数据域（比如封禁时天梯分）由于时间和技术水平等原因，尚不能记录。
