@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import scrapy
-
+import re
 
 class BannedplayerSpider(scrapy.Spider):
     name = 'BannedPlayer'
@@ -55,7 +55,7 @@ class BannedplayerSpider(scrapy.Spider):
             if release == '永久封禁':
                 release = 'Inf'
 
-            yield scrapy.Request(url=player_link, callback=self.parse_player, meta={"name":name,
+            yield scrapy.Request(url=player_link, callback=self.parse_player ,meta={"name":name,
                                                                                     'player_type':player_type,
                                                                                     'steam_id':steam_id,
                                                                                     'reason':reason,
@@ -69,6 +69,10 @@ class BannedplayerSpider(scrapy.Spider):
             if response.meta['player_type'] == 'Svip':
 
                 # 判断封禁类型
+                # 最近一场的天梯对战记录
+                # latest_match = \
+                # response.xpath('/html/body/div[6]/div[2]/div[2]/div[4]/div[2]/div[2]/div[2]/table/t'
+                #                'body[2]/tr[1]/td[10]/a[1]/@href').extract()[0]
                 # 不同的封禁原因会导致html页面的细微差异，只能根据封禁原因抓取不同的xpath
                 if response.meta['reason'] == '作弊封禁':
 
@@ -121,6 +125,9 @@ class BannedplayerSpider(scrapy.Spider):
 
             else:
                 # 非svip用户的界面设计更加混乱，甚至不能用分支来完成，因此我将错误的xpath在异常中处理
+
+                # latest_match = \
+                # response.xpath('/html/body/div[8]/div/div[2]/table/tbody/tr[2]/td[12]/a[1]/@href').extract()[0]
                 if response.xpath('/html/body/div[5]/div/div[6]/div[2]/span/text()'):
                     complaint_times = \
                         response.xpath('/html/body/div[5]/div/div[6]/div[2]/span/text()').extract()[1].split()[1]
@@ -165,10 +172,43 @@ class BannedplayerSpider(scrapy.Spider):
                 'best_weapon_heatshot':best_weapon_heatshot,
                 'best_map':best_map
             })
-        except:
+
+        except :
             # 对于没有找到正确xpath的用户，其个人页面的url会将被记录在日志当中
             player_dict = {}
-            print('***************INDEX OUT OF RANGE!*****************')
+            print('***************CAN"T CATCH THE INFORMATION!*****************')
             self.f.write(str(response.url)+'\n')
 
         yield player_dict
+
+    @staticmethod
+    def parse_score(self,response,name):
+
+
+        cop = re.compile("[^\u4e00-\u9fa5^a-z^A-Z^0-9]")
+
+        try:
+            score = ''
+            # 在上面5个玩家数据里面查找该玩家的名字
+            for i in range(5):
+                name_xpath_side_1 = '/html/body/div[4]/div/div[1]/div[3]/div[2]/table[1]/tr[%d]/td[2]/a/span/text()'%(i+2)
+                player_name = response.xpath(name_xpath_side_1).extract()[0]
+                if player_name == name:
+                    score_xpath = '/html/body/div[4]/div/div[1]/div[3]/div[2]/table[1]/tr[%d]/td[13]//text()'%(i+2)
+
+                    score = cop.sub("", response.xpath(score_xpath).extract()[0])
+
+            # 在上面5个玩家数据里面查找该玩家的名字
+            for i in range(5):
+                name_xpath_side_2 = '/html/body/div[4]/div/div[1]/div[3]/div[2]/table[2]/tr[%d]/td[2]/a/span/text()'%(i+1)
+                player_name = response.xpath(name_xpath_side_2).extract()[0]
+                if player_name == name:
+                    score_xpath = '/html/body/div[4]/div/div[1]/div[3]/div[2]/table[2]/tr[%d]/td[13]/text()'%(i+1)
+
+                    score = cop.sub("", response.xpath(score_xpath).extract()[0])
+
+
+        except:
+            score = ''
+
+        return score
