@@ -55,26 +55,24 @@ class BannedplayerSpider(scrapy.Spider):
             if release == '永久封禁':
                 release = 'Inf'
 
-            yield scrapy.Request(url=player_link, callback=self.parse_player ,meta={"name":name,
-                                                                                    'player_type':player_type,
-                                                                                    'steam_id':steam_id,
-                                                                                    'reason':reason,
-                                                                                    'banned_time':banned_time,
-                                                                                    'release':release})
+            player_dict = {"name":name,'player_type':player_type,'steam_id':steam_id,
+                           'reason':reason,'banned_time':banned_time,'release':release}
+
+            yield scrapy.Request(url=player_link, callback=self.parse_player ,meta={'player_dict':player_dict})
 
     def parse_player(self,response):
         try:
             # 判断用户类型
             # 由于Svip用户会获得独有的页面设计，因此需要抓取不同的xpath，设计不同的爬虫模式
-            if response.meta['player_type'] == 'Svip':
+            if response.meta['player_dict']['player_type'] == 'Svip':
 
                 # 判断封禁类型
                 # 最近一场的天梯对战记录
-                # latest_match = \
-                # response.xpath('/html/body/div[6]/div[2]/div[2]/div[4]/div[2]/div[2]/div[2]/table/t'
-                #                'body[2]/tr[1]/td[10]/a[1]/@href').extract()[0]
+                latest_match = \
+                response.xpath('/html/body/div[6]/div[2]/div[2]/div[4]/div[2]/div[2]/div[2]/table/t'
+                               'body[2]/tr[1]/td[10]/a[1]/@href').extract()[0]
                 # 不同的封禁原因会导致html页面的细微差异，只能根据封禁原因抓取不同的xpath
-                if response.meta['reason'] == '作弊封禁':
+                if response.meta['player_dict']['reason'] == '作弊封禁':
 
                     # 被投诉次数
                     complaint_times = \
@@ -126,8 +124,8 @@ class BannedplayerSpider(scrapy.Spider):
             else:
                 # 非svip用户的界面设计更加混乱，甚至不能用分支来完成，因此我将错误的xpath在异常中处理
 
-                # latest_match = \
-                # response.xpath('/html/body/div[8]/div/div[2]/table/tbody/tr[2]/td[12]/a[1]/@href').extract()[0]
+                latest_match = \
+                response.xpath('/html/body/div[8]/div/div[2]/table/tbody/tr[2]/td[12]/a[1]/@href').extract()[0]
                 if response.xpath('/html/body/div[5]/div/div[6]/div[2]/span/text()'):
                     complaint_times = \
                         response.xpath('/html/body/div[5]/div/div[6]/div[2]/span/text()').extract()[1].split()[1]
@@ -155,13 +153,8 @@ class BannedplayerSpider(scrapy.Spider):
                     response.xpath('/html/body/div[7]/div/div[1]/div/ul/li[1]/div/p[1]/text()').extract()[0]
 
             # 创建用户item
-            player_dict = {}
-            player_dict['name'] = response.meta['name']
-            player_dict['player_type'] = response.meta['player_type']
-            player_dict['steam_id'] = response.meta['steam_id']
-            player_dict['reason'] = response.meta['reason']
-            player_dict['banned_time'] = response.meta['banned_time']
-            player_dict['release'] = response.meta['release']
+            player_dict = response.meta['player_dict']
+
 
             # 将上级页面的信息加入到item
             player_dict.update({
@@ -173,16 +166,19 @@ class BannedplayerSpider(scrapy.Spider):
                 'best_map':best_map
             })
 
+            yield scrapy.Request(url=latest_match, callback=self.parse_score, meta={'player_dict': player_dict})
         except :
             # 对于没有找到正确xpath的用户，其个人页面的url会将被记录在日志当中
             player_dict = {}
             print('***************CAN"T CATCH THE INFORMATION!*****************')
             self.f.write(str(response.url)+'\n')
 
-        yield player_dict
+            yield player_dict
 
-    @staticmethod
-    def parse_score(self,response,name):
+
+
+
+    def parse_score(self,response):
 
 
         cop = re.compile("[^\u4e00-\u9fa5^a-z^A-Z^0-9]")
@@ -193,7 +189,7 @@ class BannedplayerSpider(scrapy.Spider):
             for i in range(5):
                 name_xpath_side_1 = '/html/body/div[4]/div/div[1]/div[3]/div[2]/table[1]/tr[%d]/td[2]/a/span/text()'%(i+2)
                 player_name = response.xpath(name_xpath_side_1).extract()[0]
-                if player_name == name:
+                if player_name == response.meta['player_dict']['name']:
                     score_xpath = '/html/body/div[4]/div/div[1]/div[3]/div[2]/table[1]/tr[%d]/td[13]//text()'%(i+2)
 
                     score = cop.sub("", response.xpath(score_xpath).extract()[0])
@@ -202,7 +198,7 @@ class BannedplayerSpider(scrapy.Spider):
             for i in range(5):
                 name_xpath_side_2 = '/html/body/div[4]/div/div[1]/div[3]/div[2]/table[2]/tr[%d]/td[2]/a/span/text()'%(i+1)
                 player_name = response.xpath(name_xpath_side_2).extract()[0]
-                if player_name == name:
+                if player_name == response.meta['player_dict']['name']:
                     score_xpath = '/html/body/div[4]/div/div[1]/div[3]/div[2]/table[2]/tr[%d]/td[13]/text()'%(i+1)
 
                     score = cop.sub("", response.xpath(score_xpath).extract()[0])
@@ -211,4 +207,9 @@ class BannedplayerSpider(scrapy.Spider):
         except:
             score = ''
 
-        return score
+        # 创建用户item
+        player_dict = response.meta['player_dict']
+        if player_dict:
+            player_dict['score'] = score
+
+        yield player_dict

@@ -94,17 +94,17 @@ class BannedplayerrecordDownloaderMiddleware(object):
             return HtmlResponse(url=request.url, body=html, request=request,encoding='utf-8')
 
         # 判断请求类型是否为用户页面请求
-        # elif 'player' in request.url:
-        #
-        #     # 创建无头firefox响应
-        #     driver = webdriver.Firefox(executable_path=GECKODRIVER_ADDRESS)
-        #     driver.get(request.url)
-        #     time.sleep(0.3)
-        #
-        #     # 创建response对象并返回
-        #     html = driver.page_source
-        #     driver.quit()
-        #     return HtmlResponse(url=request.url, body=html, request=request, encoding='utf-8')
+        elif 'player' in request.url:
+
+            # 创建无头firefox响应
+            driver = webdriver.Firefox(executable_path=GECKODRIVER_ADDRESS)
+            driver.get(request.url)
+            time.sleep(0.1)
+
+            # 创建response对象并返回
+            html = driver.page_source
+            driver.quit()
+            return HtmlResponse(url=request.url, body=html, request=request, encoding='utf-8')
 
         else:
             return None
